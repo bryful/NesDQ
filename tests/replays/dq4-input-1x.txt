@@ -1,0 +1,6 @@
+1400 X down
+1460 X up
+1800 X down
+1830 X up
+2200 Down down
+2220 Down up

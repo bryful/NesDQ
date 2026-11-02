@@ -1,0 +1,42 @@
+--- a/src/joystick/hidapi/SDL_hidapi_switch.c
++++ b/src/joystick/hidapi/SDL_hidapi_switch.c
+@@ -28,6 +28,7 @@
+ #include "../../SDL_hints_c.h"
+ #include "../SDL_sysjoystick.h"
+ #include "SDL_hidapijoystick_c.h"
++#include "wiiz_spi_reply.h"
+ #include "SDL_hidapi_rumble.h"
+ #include "SDL_hidapi_nintendo.h"
+ 
+@@ -285,6 +286,7 @@
+     SDL_Joystick *joystick;
+     bool m_bInputOnly;
+     bool m_bUseButtonLabels;
++    bool m_bWiizBspUserCalibration; /* Wiiz: BSP-D3 reply signature */
+     bool m_bPlayerLights;
+     int m_nPlayerIndex;
+     bool m_bSyncWrite;
+@@ -404,7 +406,22 @@
+                 }
+                 if (reply->ucSubcommandID == k_eSwitchSubcommandIDs_SPIFlashRead) {
+                     SDL_assert(ucLen == sizeof(reply->spiReadData.opData));
+-                    if (SDL_memcmp(&reply->spiReadData.opData, pBuf, ucLen) != 0) {
++                    /* Wiiz: accept a longer SPI reply only when its data is present. */
++                    const SwitchSPIOpData_t *requested = (const SwitchSPIOpData_t *)pBuf;
++                    /* Wiiz: this BSP-D3 reply pair reports labeled face buttons.
++                     * Reuse SDL's existing RemapButton; do not change genuine Pro/Xbox maps. */
++                    if (requested->unAddress == 0x8010 && requested->ucLength == 22 &&
++                        reply->spiReadData.opData.unAddress == 0x8010 && reply->spiReadData.opData.ucLength == 24) {
++                        ctx->m_bWiizBspUserCalibration = true;
++                    }
++                    if (ctx->m_bWiizBspUserCalibration && requested->unAddress == 0x603d && requested->ucLength == 18 &&
++                        reply->spiReadData.opData.unAddress == 0x603d && reply->spiReadData.opData.ucLength == 25) {
++                        ctx->m_bUseButtonLabels = true;
++                    }
++                    const size_t data_offset = 1 + offsetof(SwitchSubcommandInputPacket_t, spiReadData.rgucReadData);
++                    const size_t available = nRead > data_offset ? SDL_min((size_t)nRead - data_offset, sizeof(reply->spiReadData.rgucReadData)) : 0;
++                    if (!wiizSwitchSPIReplyMatches(requested->unAddress, requested->ucLength,
++                                                   reply->spiReadData.opData.unAddress, reply->spiReadData.opData.ucLength, available)) {
+                         // This was a reply for another SPI read command
+                         continue;
+                     }

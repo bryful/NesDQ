@@ -1,0 +1,10 @@
+10 F6 down
+11 F6 up
+20 F6 down
+21 F6 up
+30 F6 down
+31 F6 up
+40 F6 down
+41 F6 up
+50 F6 down
+51 F6 up

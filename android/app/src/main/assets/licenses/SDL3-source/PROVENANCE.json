@@ -1,0 +1,10 @@
+{
+  "upstream": "https://github.com/libsdl-org/SDL",
+  "version": "3.2.28",
+  "license": "zlib",
+  "rationale": "https://github.com/libsdl-org/SDL/issues/16434",
+  "source": "src/joystick/hidapi/SDL_hidapi_switch.c",
+  "upstream_lf_sha256": "1ff1b086d5e64ede483fdc62bca604062019e2a5b78a319fb7efa897c9de6d08",
+  "patched_lf_sha256": "d3c3ba09c2abe97059e29febcabf33c9bd76f6d4db29faf388e1f135350b6487",
+  "scope": "Windows Switch SPI validation and BSP-D3 face layout via existing SDL RemapButton; no new protocol decoding"
+}

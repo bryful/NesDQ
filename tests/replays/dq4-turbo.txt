@@ -1,0 +1,25 @@
+# 1→2→3→4→5→6倍、ステート復元後に再び6倍へ戻る。
+610 Return down
+611 Return up
+700 F6 down
+701 F6 up
+730 F6 down
+731 F6 up
+760 F6 down
+761 F6 up
+790 F6 down
+791 F6 up
+820 F6 down
+821 F6 up
+850 F1 down
+851 F1 up
+900 Shift+F1 down
+901 Shift+F1 up
+950 F6 down
+951 F6 up
+980 Shift+F1 down
+981 Shift+F1 up
+1020 Down down
+1140 Down up
+1160 Q down
+1161 Q up

@@ -1,0 +1,35 @@
+diff --git a/third_party/binjnes/src/emulator.c b/third_party/binjnes/src/emulator.c
+index 63ce265..57d22bc 100644
+--- a/third_party/binjnes/src/emulator.c
++++ b/third_party/binjnes/src/emulator.c
+@@ -1514,6 +1514,7 @@ static inline void inc_ppu_addr(E* e) {
+ 
+ static inline u8 read_joyp(E* e, int index, bool write, u8 val) {
+   J* j = &e->s.j;
++  if(write && e->expansion_write)e->expansion_write(e->expansion_user_data,val);
+   if (e->joypad_info.callback) {
+     bool strobe = write && (val & 1) == 1;
+     e->s.c.read_input = true;
+@@ -1574,6 +1575,7 @@ static inline u8 read_joyp(E* e, int index, bool write, u8 val) {
+       case CONTROLLER_SNES_MOUSE: {
+         u8 result = (e->s.c.open_bus & ~0x1f) | (j->port[index].serial & 1);
+         j->port[index].serial = (j->port[index].serial >> 1) | 0x80000000;
++        if(e->expansion_read)result|=e->expansion_read(e->expansion_user_data,(unsigned)index);
+         return result;
+       }
+       case CONTROLLER_ZAPPER: {
+diff --git a/third_party/binjnes/src/emulator.h b/third_party/binjnes/src/emulator.h
+index 525c0e7..d9166b4 100644
+--- a/third_party/binjnes/src/emulator.h
++++ b/third_party/binjnes/src/emulator.h
+@@ -365,6 +365,10 @@ typedef struct Emulator {
+   /* Wiiz adapter: optional RAM-write observer/filter. Not part of serialized S. */
+   bool (*ram_write_filter)(struct Emulator*, u16, u8, void*);
+   void* ram_write_user_data;
++  /* Wiiz expansion-port adapter. Optional callbacks, outside serialized S. */
++  void (*expansion_write)(void*, u8);
++  u8 (*expansion_read)(void*, unsigned);
++  void* expansion_user_data;
+   u32 master_ticks_per_second;
+   u32 master_ticks_per_frame;
+   u32 cpu_ticks_per_second;

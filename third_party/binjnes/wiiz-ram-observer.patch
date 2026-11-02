@@ -1,0 +1,24 @@
+--- a/src/emulator.c
++++ b/src/emulator.c
+@@ -1689,6 +1689,9 @@
+ }
+ 
+ static void cpu_write(E *e, u16 addr, u8 val) {
++  /* Wiiz adapter: observe/filter internal and cartridge RAM writes without changing CPU timing. */
++  if ((addr < 0x2000 || (addr >= 0x6000 && addr < 0x8000)) && e->ram_write_filter &&
++      !e->ram_write_filter(e, addr < 0x2000 ? addr & 0x7ff : addr, val, e->ram_write_user_data)) return;
+   P* p = &e->s.p;
+   C* c = &e->s.c;
+   DEBUG("     write(%04hx, %02hhx)\n", addr, val);
+--- a/src/emulator.h
++++ b/src/emulator.h
+@@ -362,6 +362,9 @@
+   FrameBuffer frame_buffer;
+   AudioBuffer audio_buffer;
+   JoypadCallbackInfo joypad_info;
++  /* Wiiz adapter: optional RAM-write observer/filter. Not part of serialized S. */
++  bool (*ram_write_filter)(struct Emulator*, u16, u8, void*);
++  void* ram_write_user_data;
+   u32 master_ticks_per_second;
+   u32 master_ticks_per_frame;
+   u32 cpu_ticks_per_second;

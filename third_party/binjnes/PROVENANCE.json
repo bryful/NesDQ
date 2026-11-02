@@ -1,0 +1,39 @@
+{
+  "upstream": "https://github.com/binji/binjnes",
+  "revision": "e2f5871a28ff189daa82b70be9324a42e2aaf9fd",
+  "license": "MIT",
+  "modifications": "src/emulator.c and src/emulator.h: optional RAM-write observer/filter for ROM-specific sound mailboxes. Null callback preserves upstream behavior. CPU/PPU/APU/Mapper algorithms and ROM bytes are unchanged. See wiiz-ram-observer.patch. Other included upstream files are unchanged. The existing optional callback also covers CPU $6000-$7FFF cartridge RAM for ROM-specific assist freezes; addresses remain CPU addresses, internal mirrors are normalized. Mapper algorithms are unchanged. Optional expansion-port callbacks forward $4016 writes and OR expansion bits into controller reads, outside serialized S. See wiiz-expansion-port.patch. Existing CPU/PPU/APU/mapper execution is retained. NesDQ adds an optional read-only APU-write observer for FF2 sound command capture ($4000-$4017 excluding DMA and controller strobe). It is outside serialized S and enabled only by the FF2 source profile; trace >= 2 additionally logs the writes. See nesdq-apu-observer.patch.",
+  "palette_license": {
+    "upstream": "https://github.com/Gumball2415/palgen-persune/blob/main/LICENSE",
+    "license": "MIT-0",
+    "local_file": "PALETTE-LICENSE.txt",
+    "sha256": "dde7935a00d63756e1996c42fe055ebbde727e263444751225dd7240675542e0"
+  },
+  "upstream_files_sha256": {
+    "LICENSE": "85a646746fecd24ea3dcfdfe814a614419826a2119048e69f09b5c62a6b1e420",
+    "src/cartdb.c": "afcbdaababde3863b6da0be699c105d20b05f8e61f4da741d8df234482b92ebe",
+    "src/cartdb.h": "4aa8b7a78f04a0e456cee68a33ba926f097a515ea93d44dad59b3bf4c7d03399",
+    "src/cartdb.inc.h": "03849e3872bd907a2556351ff3d521586d2538374c216c984fb740aea7bf102a",
+    "src/common.c": "b6d446b0defa1e4cfc7349d0c1590fb177e27c347386d4a33e9d061e688f1120",
+    "src/common.h": "b6bb16a9dfb480002ae71f39af650273f304124c04b248b160aca0de9cbd83d4",
+    "src/emulator.c": "7ab92e2104e31f769d7dc86d9c1120082fefaee1d1ee789dbde30b58b84a9a9d",
+    "src/emulator.h": "5b53df6baa1d52e983a08e5d2c6061ab94077e654ce075a8e38010f064b1af30",
+    "src/memory.h": "01e8ee44eea4bd085b29a66774fec4ddaee1c5b3f7f5c8d749396330ae06c7d2",
+    "src/vec.h": "9d19520817f2790089057d1c272edf803717ff16912bd1204ff84fd7dd5d027a",
+    "UPSTREAM-README.md": "e658c74e3c414ced00dfa51828145b23d7ddf9c9354cf75663558055db089d0a"
+  },
+  "files_sha256": {
+    "LICENSE": "85a646746fecd24ea3dcfdfe814a614419826a2119048e69f09b5c62a6b1e420",
+    "src/cartdb.c": "afcbdaababde3863b6da0be699c105d20b05f8e61f4da741d8df234482b92ebe",
+    "src/cartdb.h": "4aa8b7a78f04a0e456cee68a33ba926f097a515ea93d44dad59b3bf4c7d03399",
+    "src/cartdb.inc.h": "03849e3872bd907a2556351ff3d521586d2538374c216c984fb740aea7bf102a",
+    "src/common.c": "b6d446b0defa1e4cfc7349d0c1590fb177e27c347386d4a33e9d061e688f1120",
+    "src/common.h": "b6bb16a9dfb480002ae71f39af650273f304124c04b248b160aca0de9cbd83d4",
+    "src/emulator.c": "443f176ceb97853fa6065a65ce6b572443d845d60d3599a9e22d96ad5f611dcb",
+    "src/emulator.h": "4389de30ca50ac6449c08a3638f408faeb4f8a57b4bb23ab63b8f29529a3861f",
+    "src/memory.h": "01e8ee44eea4bd085b29a66774fec4ddaee1c5b3f7f5c8d749396330ae06c7d2",
+    "src/vec.h": "9d19520817f2790089057d1c272edf803717ff16912bd1204ff84fd7dd5d027a",
+    "UPSTREAM-README.md": "e658c74e3c414ced00dfa51828145b23d7ddf9c9354cf75663558055db089d0a"
+  },
+  "adapter_uses": "Existing RAM callback is reused for sound commands, exploration/spell-map signals, and ROM-specific MP/effect freezes. The cartridge RAM notification extension is documented in modifications and wiiz-ram-observer.patch. See docs/spell-map.md and docs/difficulty.md. In NesDQ 0.4.0, FF2 audio experiments are archived under tools/experimental and not linked into the app. Runtime FF2/FF3 profiles use only the RAM observer for input repeat correction; their APU observer remains null."
+}

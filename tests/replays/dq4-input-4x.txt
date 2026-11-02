@@ -1,0 +1,12 @@
+1400 X down
+1460 X up
+1800 X down
+1830 X up
+2100 F6 down
+2101 F6 up
+2110 F6 down
+2111 F6 up
+2120 F6 down
+2121 F6 up
+2200 Down down
+2220 Down up
