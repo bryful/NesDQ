@@ -6,6 +6,8 @@
 
 ## インストール
 
+Windows／Androidのバイナリーは、[NesDQ_app](https://github.com/bryful/NesDQ_app) からダウンロードできます。
+
 - Windows：配布フォルダーの `nesdq.exe` を起動します。インストール作業や追加DLLの配置は不要です。`Rom` フォルダーにROMを置くこともできます。
 - Android：`NesDQ-1.0.5-android-arm64.apk` を端末で開いてインストールします。初回起動時に、ROM・保存データを置くフォルダーを選択してください。
 
