@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-project(NesDQ VERSION 1.0.5 LANGUAGES C CXX)
+project(NesDQ VERSION 1.0.6 LANGUAGES C CXX)
 include(FetchContent)
 if(ANDROID)
  set(SDL_SHARED ON CACHE BOOL "" FORCE)

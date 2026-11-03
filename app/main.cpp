@@ -244,7 +244,7 @@ struct Session
     std::unique_ptr<WiizCore, decltype(&wiiz_core_delete)> core{nullptr, wiiz_core_delete};
     std::vector<uint8_t> soundRom;
     std::unique_ptr<WiizCore,decltype(&wiiz_core_delete)> music{nullptr,wiiz_core_delete};
-    bool supportsTurbo=false,musicActive=false,swapAb=false,maxSkills=false,freeJobs=false;
+    bool supportsTurbo=false,musicActive=false,swapAb=false,swapXy=false,maxSkills=false,freeJobs=false;
     unsigned speed=1,profile=0,experienceFactor=1,goldFactor=1;
     fs::path folder;
     fs::path saveName;
@@ -302,6 +302,12 @@ struct Session
         userstore::mkdir(folder);
         userstore::mkdir(folder/"Save");
         userstore::mkdir(folder/"state");
+        const auto xyControls=folder/"xy-swap.cfg";
+        if (userstore::exists(xyControls))
+        {
+            const auto bytes=userstore::read(xyControls,4);
+            swapXy=bytes.size()==1 && bytes[0]=='1';
+        }
         const auto controls=folder/"ab-swap.cfg";
         if (userstore::exists(controls))
         {
@@ -401,6 +407,11 @@ struct Session
         speed=value;
         if (music && value>1) musicActive=true;
         writeFile(folder/(identity+".speed"),std::vector<uint8_t>{uint8_t('0'+value)});
+    }
+    void setSwapXy(bool value)
+    {
+        writeFile(folder/"xy-swap.cfg",std::vector<uint8_t>{uint8_t(value?'1':'0')});
+        swapXy=value;
     }
     void setSwapAb(bool value)
     {
@@ -782,8 +793,8 @@ int main(int argc, char** argv)
         bool running=true,paused=false,focused=true; unsigned selected=0,pendingPress=0;
         std::string status;Uint64 statusUntil=0;
         double next=SDL_GetTicksNS()/1e9;Uint64 lastSave=SDL_GetTicks();
-        std::array<std::string,20> menu={"Resume","Save slot 1","Load slot 1","Save slot 2","Load slot 2","Save slot 3","Load slot 3","Save slot 4","Load slot 4","Save slot 5","Load slot 5","Speed: 1x","Swap A/B: Off","Select ROM","Battle EXP: 1x","Battle Gold: 1x","Max skills: Off","Free Jobs: Off","Reset","Exit"};
-        auto title=[&] { menu[11]=session->supportsTurbo?"Speed: "+std::to_string(session->speed)+"x":"Speed: unavailable"; menu[12]=session->swapAb?"Swap A/B: On":"Swap A/B: Off"; menu[14]=session->supportsExperienceRewards()?"Battle EXP: "+std::to_string(session->experienceFactor)+"x":"Battle EXP: unavailable"; menu[15]=session->supportsRewards()?"Battle Gold: "+std::to_string(session->goldFactor)+"x":"Battle Gold: unavailable"; menu[16]=session->ffAudio()?std::string(session->profile==122?"Max Wpn/Magic: ":"Max Job skill: ")+(session->maxSkills?"On":"Off"):"Max skills: unavailable"; menu[17]=session->profile==123?std::string("Free Jobs: ")+(session->freeJobs?"On":"Off"):"Free Jobs: unavailable"; SDL_SetWindowTitle(window, paused ? ("NesDQ | "+menu[selected]+" | Up/Down, Left/Right, Enter, Esc").c_str() : ("NesDQ | "+std::to_string(session->speed)+"x | Q: Menu | F6: Speed | F1-F5: Save").c_str()); };
+        std::array<std::string,21> menu={"Resume","Save slot 1","Load slot 1","Save slot 2","Load slot 2","Save slot 3","Load slot 3","Save slot 4","Load slot 4","Save slot 5","Load slot 5","Speed: 1x","Swap A/B: Off","Swap X/Y: Off","Select ROM","Battle EXP: 1x","Battle Gold: 1x","Max skills: Off","Free Jobs: Off","Reset","Exit"};
+        auto title=[&] { menu[11]=session->supportsTurbo?"Speed: "+std::to_string(session->speed)+"x":"Speed: unavailable"; menu[12]=session->swapAb?"Swap A/B: On":"Swap A/B: Off"; menu[13]=session->swapXy?"Swap X/Y: On":"Swap X/Y: Off"; menu[15]=session->supportsExperienceRewards()?"Battle EXP: "+std::to_string(session->experienceFactor)+"x":"Battle EXP: unavailable"; menu[16]=session->supportsRewards()?"Battle Gold: "+std::to_string(session->goldFactor)+"x":"Battle Gold: unavailable"; menu[17]=session->ffAudio()?std::string(session->profile==122?"Max Wpn/Magic: ":"Max Job skill: ")+(session->maxSkills?"On":"Off"):"Max skills: unavailable"; menu[18]=session->profile==123?std::string("Free Jobs: ")+(session->freeJobs?"On":"Off"):"Free Jobs: unavailable"; SDL_SetWindowTitle(window, paused ? ("NesDQ | "+menu[selected]+" | Up/Down, Left/Right, Enter, Esc").c_str() : ("NesDQ | "+std::to_string(session->speed)+"x | Q: Menu | F6: Speed | F1-F5: Save").c_str()); };
         auto action=[&](unsigned slot,bool load)
         {
             session->state(slot,load);if(load)audio.reset();held.clear();pendingPress=0;
@@ -827,7 +838,7 @@ int main(int argc, char** argv)
                 discardAndroidRom(path);
             }
 #endif
-            gamepad.poll(focused,paused);
+            gamepad.poll(focused,paused,session->swapXy);
             while (replayIndex<replay.size() && replay[replayIndex].frame==frame)
             {
                 const auto& key=replay[replayIndex++];SDL_Event input{};
@@ -859,19 +870,21 @@ int main(int argc, char** argv)
                         if (selected==11 && session->supportsTurbo && (key==SDLK_LEFT || key==SDLK_RIGHT))
                             session->setSpeed(key==SDLK_RIGHT?session->speed%6+1:(session->speed+4)%6+1);
                         if (selected==12 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->setSwapAb(!session->swapAb);
-                        if ((selected==14 || selected==15) && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->cycleReward(selected==14,key==SDLK_RIGHT);
-                        if (selected==16 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->toggleMaxSkills();
-                        if (selected==17 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->toggleFreeJobs();
+                        if (selected==13 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->setSwapXy(!session->swapXy);
+                        if ((selected==15 || selected==16) && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->cycleReward(selected==15,key==SDLK_RIGHT);
+                        if (selected==17 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->toggleMaxSkills();
+                        if (selected==18 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->toggleFreeJobs();
                         if (key==SDLK_RETURN || key==SDLK_X)
                         {
                             if (selected==0) paused=false;
                             else if (selected<11) action((selected+1)/2,selected%2==0);
                             else if (selected==12) session->setSwapAb(!session->swapAb);
-                            else if (selected==13) selectRom();
-                            else if (selected==16) session->toggleMaxSkills();
-                            else if (selected==17) session->toggleFreeJobs();
-                            else if (selected==18) {session->reset();held.clear();pendingPress=0;audio.reset();paused=false;}
-                            else if (selected==19) running=false;
+                            else if (selected==13) session->setSwapXy(!session->swapXy);
+                            else if (selected==14) selectRom();
+                            else if (selected==17) session->toggleMaxSkills();
+                            else if (selected==18) session->toggleFreeJobs();
+                            else if (selected==19) {session->reset();held.clear();pendingPress=0;audio.reset();paused=false;}
+                            else if (selected==20) running=false;
                         }
                         title();
                     }

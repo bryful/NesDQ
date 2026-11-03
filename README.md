@@ -2,14 +2,14 @@
 
 ファミコン版RPGをWindows／Androidで快適に遊ぶアプリです。DQ4・DQ3・FF2・FF3の倍速プレイに対応しています。ROMは同梱しません。
 
-正式版 **1.0.5**。Windows 10／11のx64版、Android 6.0以降のarm64端末向けです。
+正式版 **1.0.6**。Windows 10／11のx64版、Android 6.0以降のarm64端末向けです。
 
 ## インストール
 
 Windows／Androidのバイナリーは、[NesDQ_app](https://github.com/bryful/NesDQ_app) からダウンロードできます。
 
 - Windows：配布フォルダーの `nesdq.exe` を起動します。インストール作業や追加DLLの配置は不要です。`Rom` フォルダーにROMを置くこともできます。
-- Android：`NesDQ-1.0.5-android-arm64.apk` を端末で開いてインストールします。初回起動時に、ROM・保存データを置くフォルダーを選択してください。
+- Android：`NesDQ-1.0.6-android-arm64.apk` を端末で開いてインストールします。初回起動時に、ROM・保存データを置くフォルダーを選択してください。
 
 以前のデバッグ版Androidアプリとは署名が異なるため、そのまま上書きできません。選択済みの外部 `NesDQ` フォルダー内の `Save`・`state` と設定ファイルを残し、旧版をアンインストールしてから正式版を入れ、同じ外部フォルダーを選び直してください。アプリ専用の内部保存先にデータが残っている場合は、削除前に外部フォルダーへの移行を済ませてください。
 
@@ -26,6 +26,7 @@ ROM一覧は上下キー・十字キーで移動、A（X／Enter）で決定、B
 ## 操作
 
 - 方向キー：移動。X／Enter：A。Z／Backspace：B。A／Tab：Select。S／Space：Start。
+- ゲームパッドのX（上）：Start。Y（左）：Select（Nintendo配置）。メニューのSwap X/Yで入れ替えでき、次回起動時も記憶します。
 - Q／Esc／左スティック押し込み：メニュー。上下で選択、Enter／Xで決定、Z／Backspaceで戻る。
 - F1〜F5：各スロットへ保存。Shift＋F1〜F5：読込。LT／ZL：スロット1保存。
 - メニューのSpeedを選び、左右で速度を変更。F6でも1→2→3→4→5→6→1倍へ変更できます。

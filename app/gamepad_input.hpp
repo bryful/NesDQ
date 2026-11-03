@@ -42,7 +42,7 @@ public:
             ? "UP/DOWN  A:OK  B:BACK" : "UP/DOWN  B:OK  A:BACK";
     }
     void close() { for (auto [id, pad] : pads_) SDL_CloseGamepad(pad); pads_.clear(); }
-    void poll(bool enabled, bool navigation) {
+    void poll(bool enabled, bool navigation, bool swapXy = false) {
         int count = 0;
         SDL_JoystickID* ids = SDL_GetGamepads(&count);
         for (int i = 0; i < count; ++i)
@@ -81,7 +81,8 @@ public:
                 down(SDL_GAMEPAD_BUTTON_DPAD_UP) || axis[0], down(SDL_GAMEPAD_BUTTON_DPAD_DOWN) || axis[1],
                 down(SDL_GAMEPAD_BUTTON_DPAD_LEFT) || axis[2], down(SDL_GAMEPAD_BUTTON_DPAD_RIGHT) || axis[3],
                 down(SDL_GAMEPAD_BUTTON_EAST), down(SDL_GAMEPAD_BUTTON_SOUTH),
-                down(SDL_GAMEPAD_BUTTON_BACK), down(SDL_GAMEPAD_BUTTON_START),
+                down(SDL_GAMEPAD_BUTTON_BACK) || down(swapXy ? SDL_GAMEPAD_BUTTON_NORTH : SDL_GAMEPAD_BUTTON_WEST),
+                down(SDL_GAMEPAD_BUTTON_START) || down(swapXy ? SDL_GAMEPAD_BUTTON_WEST : SDL_GAMEPAD_BUTTON_NORTH),
                 down(SDL_GAMEPAD_BUTTON_LEFT_STICK), down(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER),
                 axis[4], down(SDL_GAMEPAD_BUTTON_RIGHT_STICK)
             };

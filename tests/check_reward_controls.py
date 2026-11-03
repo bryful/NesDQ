@@ -13,7 +13,7 @@ exe = root / 'build/Release/nesdq.exe'
 
 def run(rom, folder, actions, screenshot='menu'):
     events = [(2, 'Q')]
-    events += [(4 + i * 2, 'Down') for i in range(14)]
+    events += [(4 + i * 2, 'Down') for i in range(15)]
     events += [(34 + i * 2, key) for i, key in enumerate(actions)]
     replay = output / 'replay.txt'
     replay.write_text(''.join(f'{frame} {key} down\n{frame+1} {key} up\n' for frame, key in events))
