@@ -40,4 +40,4 @@ cmake --build build --config Release --target nesdq_picker_check nesdq_rom_check
 
 作品別の調査・検証方法は `docs/`、入力リプレイは `tests/replays/` にあります。接続コードの再生成にはPythonと `py65`、アイコンの書き出しにはPillowを使用します。アプリ実行時には不要です。
 
-Android実機の全場面の操作、6倍速性能、OS間のステート互換性は未確認です。
+ゲーム全場面の操作、Android実機の6倍速性能、Windows／Android間のステート互換性は未確認です。
