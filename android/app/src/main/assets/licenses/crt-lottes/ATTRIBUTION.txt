@@ -1,0 +1,11 @@
+PUBLIC DOMAIN CRT STYLED SCAN-LINE SHADER
+by Timothy Lottes
+
+The original source declares its public-domain status and permits use and changes.
+The complete declaration is retained in crt-lottes.glsl beside this notice.
+Source revision and SHA-256 are recorded in PROVENANCE.json.
+
+Wiiz ports Horz3/Horz5/Horz7, Gaussian, Scan, Tri, Bloom and sRGB conversion
+to portable C++ CPU display postprocessing. Gamma lookup tables, cached 3x
+sampling weights, mild/standard presets and vignette are application glue.
+Warp and shadow masks are disabled; no ROM, sound or emulator state is changed.

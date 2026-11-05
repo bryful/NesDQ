@@ -1,0 +1,9 @@
+{
+  "author": "Timothy Lottes",
+  "revision": "e808ca09c699db7a843154cf7dc4dfd766d18a8a",
+  "source": "https://github.com/libretro/glsl-shaders/blob/e808ca09c699db7a843154cf7dc4dfd766d18a8a/crt/shaders/crt-lottes.glsl",
+  "license": "Public domain (declaration in source header)",
+  "project": "libretro/glsl-shaders",
+  "adoption": "Gaussian horizontal reconstruction and scanline/bloom kernels ported to portable C++ CPU postprocessing; no OpenGL dependency; curvature and shadow mask disabled.",
+  "sha256": "699a947fc2744eb7e2dc4adb2c08a8b74e31685baa77cbc1face9593106b57ef"
+}

@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include "core_bridge.h"
+#include "crt_filter.hpp"
 #include "gamepad_input.hpp"
 #include "audio_output.hpp"
 #include "picosha2.h"
@@ -784,6 +785,30 @@ int main(int argc, char** argv)
         if (!texture) throw std::runtime_error(SDL_GetError());
         std::unique_ptr<SDL_Texture,decltype(&SDL_DestroyTexture)> textureOwner(texture,SDL_DestroyTexture);
         SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
+        std::unique_ptr<SDL_Texture,decltype(&SDL_DestroyTexture)> crtTexture(nullptr,SDL_DestroyTexture);
+        std::unique_ptr<CrtFilter> crt;
+        const auto crtConfig=data/"crt-mode.txt";
+        constexpr std::array crtNames={"Off","Mild","Standard"};
+        constexpr unsigned crtItem=20;
+        unsigned crtMode=0;
+        auto setCrtMode=[&](unsigned mode,bool save)
+        {
+            if(mode && !crt)
+            {
+                auto filter=std::make_unique<CrtFilter>();
+                crtTexture.reset(SDL_CreateTexture(renderer,SDL_PIXELFORMAT_RGBA32,SDL_TEXTUREACCESS_STREAMING,CrtFilter::width,CrtFilter::height));
+                if(!crtTexture || !SDL_SetTextureScaleMode(crtTexture.get(),SDL_SCALEMODE_LINEAR))
+                    throw std::runtime_error(SDL_GetError());
+                crt=std::move(filter);
+            }
+            if(save)writeFile(crtConfig,{uint8_t('0'+mode)});
+            crtMode=mode;
+        };
+        if(userstore::exists(crtConfig))
+        {
+            const auto bytes=userstore::read(crtConfig,4);
+            if(bytes.size()==1 && bytes[0]>='1' && bytes[0]<='2')setCrtMode(bytes[0]-'0',false);
+        }
         AudioOutput audio(realTime,bufferedPlayback);
         GamepadInput gamepad;
         gamepad.poll(false,false);
@@ -793,8 +818,8 @@ int main(int argc, char** argv)
         bool running=true,paused=false,focused=true; unsigned selected=0,pendingPress=0;
         std::string status;Uint64 statusUntil=0;
         double next=SDL_GetTicksNS()/1e9;Uint64 lastSave=SDL_GetTicks();
-        std::array<std::string,21> menu={"Resume","Save slot 1","Load slot 1","Save slot 2","Load slot 2","Save slot 3","Load slot 3","Save slot 4","Load slot 4","Save slot 5","Load slot 5","Speed: 1x","Swap A/B: Off","Swap X/Y: Off","Select ROM","Battle EXP: 1x","Battle Gold: 1x","Max skills: Off","Free Jobs: Off","Reset","Exit"};
-        auto title=[&] { menu[11]=session->supportsTurbo?"Speed: "+std::to_string(session->speed)+"x":"Speed: unavailable"; menu[12]=session->swapAb?"Swap A/B: On":"Swap A/B: Off"; menu[13]=session->swapXy?"Swap X/Y: On":"Swap X/Y: Off"; menu[15]=session->supportsExperienceRewards()?"Battle EXP: "+std::to_string(session->experienceFactor)+"x":"Battle EXP: unavailable"; menu[16]=session->supportsRewards()?"Battle Gold: "+std::to_string(session->goldFactor)+"x":"Battle Gold: unavailable"; menu[17]=session->ffAudio()?std::string(session->profile==122?"Max Wpn/Magic: ":"Max Job skill: ")+(session->maxSkills?"On":"Off"):"Max skills: unavailable"; menu[18]=session->profile==123?std::string("Free Jobs: ")+(session->freeJobs?"On":"Off"):"Free Jobs: unavailable"; SDL_SetWindowTitle(window, paused ? ("NesDQ | "+menu[selected]+" | Up/Down, Left/Right, Enter, Esc").c_str() : ("NesDQ | "+std::to_string(session->speed)+"x | Q: Menu | F6: Speed | F1-F5: Save").c_str()); };
+        std::array<std::string,22> menu={"Resume","Save slot 1","Load slot 1","Save slot 2","Load slot 2","Save slot 3","Load slot 3","Save slot 4","Load slot 4","Save slot 5","Load slot 5","Speed: 1x","Swap A/B: Off","Swap X/Y: Off","Select ROM","Battle EXP: 1x","Battle Gold: 1x","Max skills: Off","Free Jobs: Off","Reset","CRT: Off","Exit"};
+        auto title=[&] { menu[11]=session->supportsTurbo?"Speed: "+std::to_string(session->speed)+"x":"Speed: unavailable"; menu[12]=session->swapAb?"Swap A/B: On":"Swap A/B: Off"; menu[13]=session->swapXy?"Swap X/Y: On":"Swap X/Y: Off"; menu[15]=session->supportsExperienceRewards()?"Battle EXP: "+std::to_string(session->experienceFactor)+"x":"Battle EXP: unavailable"; menu[16]=session->supportsRewards()?"Battle Gold: "+std::to_string(session->goldFactor)+"x":"Battle Gold: unavailable"; menu[17]=session->ffAudio()?std::string(session->profile==122?"Max Wpn/Magic: ":"Max Job skill: ")+(session->maxSkills?"On":"Off"):"Max skills: unavailable"; menu[18]=session->profile==123?std::string("Free Jobs: ")+(session->freeJobs?"On":"Off"):"Free Jobs: unavailable"; menu[crtItem]=std::string("CRT: ")+crtNames[crtMode]; SDL_SetWindowTitle(window, paused ? ("NesDQ | "+menu[selected]+" | Up/Down, Left/Right, Enter, Esc").c_str() : ("NesDQ | "+std::to_string(session->speed)+"x | Q: Menu | F6: Speed | F1-F5: Save").c_str()); };
         auto action=[&](unsigned slot,bool load)
         {
             session->state(slot,load);if(load)audio.reset();held.clear();pendingPress=0;
@@ -874,7 +899,10 @@ int main(int argc, char** argv)
                         if ((selected==15 || selected==16) && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->cycleReward(selected==15,key==SDLK_RIGHT);
                         if (selected==17 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->toggleMaxSkills();
                         if (selected==18 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->toggleFreeJobs();
-                        if (key==SDLK_RETURN || key==SDLK_X)
+                        const bool confirm=key==SDLK_RETURN || key==SDLK_X;
+                        if (selected==crtItem && (confirm || key==SDLK_LEFT || key==SDLK_RIGHT))
+                            setCrtMode((crtMode+(key==SDLK_LEFT?2u:1u))%3u,true);
+                        else if (confirm)
                         {
                             if (selected==0) paused=false;
                             else if (selected<11) action((selected+1)/2,selected%2==0);
@@ -884,7 +912,7 @@ int main(int argc, char** argv)
                             else if (selected==17) session->toggleMaxSkills();
                             else if (selected==18) session->toggleFreeJobs();
                             else if (selected==19) {session->reset();held.clear();pendingPress=0;audio.reset();paused=false;}
-                            else if (selected==20) running=false;
+                            else if (selected==menu.size()-1) running=false;
                         }
                         title();
                     }
@@ -904,8 +932,14 @@ int main(int argc, char** argv)
             }
             const Uint64 gameEnd=SDL_GetTicksNS();
             wiiz_core_pixels(session->core.get(),pixels.data());
-            SDL_UpdateTexture(texture,nullptr,pixels.data(),256*4);
-            SDL_SetRenderDrawColor(renderer,0,0,0,255); SDL_RenderClear(renderer); SDL_RenderTexture(renderer,texture,nullptr,nullptr);
+            auto* display=texture;
+            if(crtMode)
+            {
+                display=crtTexture.get();
+                SDL_UpdateTexture(display,nullptr,crt->render(pixels.data(),crtMode),CrtFilter::width*sizeof(uint32_t));
+            }
+            else SDL_UpdateTexture(display,nullptr,pixels.data(),256*4);
+            SDL_SetRenderDrawColor(renderer,0,0,0,255); SDL_RenderClear(renderer); SDL_RenderTexture(renderer,display,nullptr,nullptr);
             if (paused)
             {
                 SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);SDL_SetRenderDrawColor(renderer,0,0,0,220);SDL_RenderFillRect(renderer,nullptr);
