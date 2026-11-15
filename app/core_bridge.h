@@ -30,6 +30,7 @@ unsigned wiiz_core_peek(WiizCore*,unsigned addr);
 int wiiz_core_rewards(WiizCore*,unsigned experience,unsigned gold);
 int wiiz_core_max_skills(WiizCore*,unsigned enabled);
 int wiiz_core_free_jobs(WiizCore*,unsigned enabled);
+int wiiz_core_free_magic(WiizCore*,unsigned enabled);
 unsigned wiiz_core_sound_pending(WiizCore*);
 unsigned wiiz_core_sound_at(WiizCore*,unsigned index);
 void wiiz_core_profile_source(WiizCore*,unsigned profile,int trace);

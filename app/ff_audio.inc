@@ -17,6 +17,13 @@ static bool ff_audio_write(Emulator* e,uint16_t addr,uint8_t value,void* userdat
     }
     else
     {
+        if(core->free_magic && core->sound_role==1 && bank==0x18 &&
+           pc==0x9f1f && e->s.c.opcode==0x86 && addr==0x62)
+        {
+            // Only the number displayed in the MP Cost window is zero.
+            e->s.c.ram[0x62]=0;
+            return false;
+        }
         if(bank==26 && addr==0xc0 && pc==0x9804)++core->music_steps;
         if(bank==11 && addr==0xcc && pc==0xba73)++core->effect_steps;
         if(addr==0xe0 && bank!=26 && bank!=27 && (value&0xc0))sound_event(core,1,value);

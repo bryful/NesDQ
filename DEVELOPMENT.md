@@ -27,6 +27,10 @@ cd android
 
 Release署名は既定で `../NesDQ_signing` の `release.properties` と `nesdq-release.p12` を使用します。`tools/initialize_signing.ps1` は `JAVA_HOME` のJDKで新規鍵を作成し、既存鍵を上書きしません。既存アプリの更新には同じ鍵が必要です。秘密鍵・パスワード・ローカル設定は公開しないでください。
 
+## リリース配布先
+
+今後のリリースでは、Windows x64版と署名済みAndroid arm64 APKを、同階層の配布用リポジトリ `../NesDQ_app`（`C:/Users/bryfu/source/repos/NesDQ_app`）のルートにまとめます。利用者向けREADME、ライセンス、署名情報、SHA-256一覧も更新します。最新版のAPKを配置・検証してから、前版のAPKを配布フォルダーから取り除きます。ROM・セーブ・署名鍵・署名設定は配布物へ含めません。
+
 ## 検証
 
 ROMを必要とする検証は、利用可能なROMのパスを引数で渡します。ROMファイル自体は公開・同梱しません。

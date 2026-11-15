@@ -364,6 +364,7 @@ typedef struct Emulator {
   JoypadCallbackInfo joypad_info;
   /* Wiiz adapter: optional RAM-write observer/filter. Not part of serialized S. */
   bool (*ram_write_filter)(struct Emulator*, u16, u8, void*);
+  u8 (*cpu_ram_read_filter)(struct Emulator*, u16, u8, void*);
   void* ram_write_user_data;
   /* NesDQ optional APU-write observer. Not part of serialized S. */
   void (*apu_write_observer)(struct Emulator*, u16, u8, void*);

@@ -202,6 +202,39 @@ static void checkFreeJobs(const uint8_t* source,size_t size,unsigned enabled,uns
     if(result)memcpy(result,e->s.c.prg_ram,8192);
     free(state);wiiz_core_delete(core);free(rom);
 }
+static void checkFreeMagic(const uint8_t* source,size_t size,unsigned bank,
+                           unsigned start,unsigned end,unsigned enabled,
+                           unsigned mp_addr,unsigned mp,unsigned expected,unsigned actor)
+{
+    uint8_t* rom=malloc(size);memcpy(rom,source,size);
+    const unsigned offset=16+bank*0x4000-0x8000;
+    const uint8_t pass[]={0x4c,0xe0,7}, fail[]={0x4c,0xe5,7};
+    memcpy(rom+offset+end,pass,sizeof(pass));
+    if(start==0x9e23)memcpy(rom+offset+0x9e02,fail,sizeof(fail));
+    if(start==0xab5e)memcpy(rom+offset+0xab70,fail,sizeof(fail));
+    rom[size-4]=0;rom[size-3]=7;rom[size-6]=0xf0;rom[size-5]=7;
+    WiizCore* core=wiiz_core_new(rom,size);require(core!=NULL,"create magic check");
+    wiiz_core_profile_source(core,122,0);
+    require(wiiz_core_free_magic(core,enabled),"free magic setting");
+    Emulator* e=core->e;
+    uint8_t* ram=e->s.c.ram;
+    const uint8_t boot[]={0x78,0xd8,0xa2,0xff,0x9a,0xa9,(uint8_t)bank,0x20,3,0xfe,
+        0xa2,start==0x9f1b?16:0,0xa0,0,0x4c,(uint8_t)start,(uint8_t)(start>>8)};
+    const uint8_t done[]={0xa9,1,0x8d,0xef,7,0x4c,0xe5,7};
+    memcpy(ram+0x700,boot,sizeof(boot));memcpy(ram+0x7e0,done,sizeof(done));ram[0x7f0]=0x40;
+    ram[0x7ef]=0;ram[0x77]=16;
+    reward_write(e,0x80,2,actor);reward_write(e,0x9f,2,actor);
+    reward_write(e,actor+0x25,1,16);reward_write(e,0x6210,1,15);
+    reward_write(e,mp_addr,2,mp);
+    require(wiiz_core_frame(core),"magic routine executed");
+    const unsigned selecting=start==0x9e23 || start==0xab5e;
+    require(ram[0x7ef]==(!selecting || enabled || mp>=16),"magic selection or completion");
+    require(reward_read(e,mp_addr,2)==expected,"magic MP charge");
+    if(start==0xa95c)require(reward_read(e,actor+0x25,1)==16,"battle spell level preserved");
+    if(start==0x9f1b)
+        require(ram[0x62]==(enabled?0:16) && reward_read(e,actor+0x25,1)==16,"battle cost display");
+    wiiz_core_delete(core);free(rom);
+}
 int main(int argc,char** argv)
 {
     require(argc==5,"provide DQ3, DQ4, FF3, FF2 ROMs");
@@ -239,6 +272,20 @@ int main(int argc,char** argv)
             checkFreeJobs(rom,size,1,0,20,0,2,free_job);
             require(memcmp(normal,free_job,sizeof(normal))==0,"free job result matches original funded change");
             puts("PASS free jobs: zero CP, no charge, original restrictions, toggle, restore, full job change");
+        }
+        if(profiles[game]==122)
+        {
+            for(unsigned enabled=0;enabled<=1;++enabled)
+            {
+                checkFreeMagic(rom,size,12,0x9e23,0x9e33,enabled,0x7d86,0,0,0x7d7a);
+                checkFreeMagic(rom,size,12,0x9f1b,0x9f24,enabled,0x7d86,0,0,0x7d7a);
+                checkFreeMagic(rom,size,14,0xab5e,0xab75,enabled,0x610c,0,0,0x7d7a);
+                checkFreeMagic(rom,size,12,0xa95c,0xa989,enabled,0x7e16,0x105,enabled?0x105:0xf5,0x7e0a);
+                checkFreeMagic(rom,size,14,0xac91,0xaca3,enabled,0x610c,0x105,enabled?0x105:0xf5,0x7d7a);
+            }
+            checkFreeMagic(rom,size,14,0xac91,0xaca3,1,0x610c,0,0,0x7d7a);
+            checkFreeMagic(rom,size,12,0xa95c,0xa989,1,0x7e46,16,0,0x7e3a);
+            puts("PASS free magic: zero MP selection, no party charge, enemy charge preserved");
         }
         free(rom);printf("profile=%u reward factors, max skills, saturation, restore passed\n",profiles[game]);
     }

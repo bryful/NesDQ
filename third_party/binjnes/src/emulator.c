@@ -1617,8 +1617,12 @@ static u8 cpu_read(E *e, u16 addr) {
 
   A* a = &e->s.a;
   switch (addr >> 12) {
-  case 0: case 1: // Internal RAM
-    return c->open_bus = c->ram[addr & 0x7ff];
+  case 0: case 1: { // Internal RAM
+    u8 value = c->ram[addr & 0x7ff];
+    if (e->cpu_ram_read_filter)
+      value = e->cpu_ram_read_filter(e, addr, value, e->ram_write_user_data);
+    return c->open_bus = value;
+  }
 
   case 2: case 3: { // PPU
     P *p = &e->s.p;
@@ -1680,8 +1684,12 @@ static u8 cpu_read(E *e, u16 addr) {
   case 5:
     break;
 
-  case 6: case 7:
-    return c->open_bus = e->mapper_prg_ram_read(e, addr);
+  case 6: case 7: {
+    u8 value = e->mapper_prg_ram_read(e, addr);
+    if (e->cpu_ram_read_filter)
+      value = e->cpu_ram_read_filter(e, addr, value, e->ram_write_user_data);
+    return c->open_bus = value;
+  }
 
    // ROM
   default:

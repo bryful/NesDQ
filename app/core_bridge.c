@@ -8,7 +8,7 @@
 struct WiizCore { Emulator* e; unsigned buttons; float audio[4096]; size_t audio_count; unsigned sound_commands[3]; int sound_role; unsigned roster_editable,title_ready;
     unsigned queue[42], queue_count, queue_overflow, trace;
     unsigned input_speed,profile,input_timer_live,music_steps,effect_steps;
-    unsigned reward_exp,reward_gold,max_skills,free_jobs;
+    unsigned reward_exp,reward_gold,max_skills,free_jobs,free_magic;
     uint8_t (*prg_ram_read)(Emulator*,uint16_t); };
 static void sound_event(WiizCore*,unsigned,unsigned);
 static bool ff_audio_write(Emulator*,uint16_t,uint8_t,void*);
@@ -289,6 +289,7 @@ void wiiz_core_profile_source(WiizCore* core,unsigned profile,int trace)
     core->profile=profile;core->sound_role=1;core->trace=trace;
     core->e->ram_write_filter=profile>=122?ff_audio_write:dq4_write;core->e->ram_write_user_data=core;
     core->e->mapper_prg_ram_read=profile==123?ff3_job_read:core->prg_ram_read;
+    core->e->cpu_ram_read_filter=profile==122 && core->free_magic?ff2_magic_read:NULL;
     core->e->apu_write_observer=profile>=122?ff_audio_apu:NULL;
     core->e->apu_write_user_data=core;
 }

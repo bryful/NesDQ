@@ -24,6 +24,39 @@ static uint8_t ff3_job_read(Emulator* e,uint16_t addr)
         (e->s.c.PC.val==0xab9b && e->s.c.opcode==0xfd)))return 0;
     return value;
 }
+static uint8_t ff2_magic_read(Emulator* e,uint16_t addr,uint8_t value,void* userdata)
+{
+    const WiizCore* core=userdata;
+    if(core->profile!=122 || core->sound_role!=1)return value;
+    const unsigned pc=e->s.c.PC.val;
+    const unsigned opcode=e->s.c.opcode;
+    if(e->s.m.prg8k_bank[0]==0x18 && pc==0x9e2a && opcode==0xe5 && addr==0x77)return 0;
+    if(e->s.m.prg8k_bank[1]==0x19 && pc==0xa965 && opcode==0xf1)
+    {
+        // The four party spell levels are in the battle records at $7D7A + $30 * slot.
+        if(addr>=0x7d9f && addr<=0x7e2f && (addr-0x7d9f)%0x30==0)return 0;
+    }
+    if(e->s.m.prg8k_bank[1]==0x1d && addr>=0x6210 && addr<=0x62ee &&
+       ((addr-0x6210)&0x3f)<0x20 && !(addr&1))
+    {
+        // The field check adds one to the stored level before comparing.
+        if(pc==0xab61 && opcode==0xb9)return 0xff;
+        if(pc==0xac98 && opcode==0xf9)
+        {
+            // The original CLC accounts for the level being stored zero-based.
+            e->s.c.C=true;
+            return 0;
+        }
+    }
+    return value;
+}
+int wiiz_core_free_magic(WiizCore* core,unsigned enabled)
+{
+    if(enabled>1 || (enabled && core->profile!=122))return 0;
+    core->free_magic=enabled;
+    core->e->cpu_ram_read_filter=enabled?ff2_magic_read:NULL;
+    return 1;
+}
 int wiiz_core_rewards(WiizCore* core,unsigned experience,unsigned gold)
 {
     if(!reward_factor(experience) || !reward_factor(gold))return 0;

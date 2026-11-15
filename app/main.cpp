@@ -245,7 +245,7 @@ struct Session
     std::unique_ptr<WiizCore, decltype(&wiiz_core_delete)> core{nullptr, wiiz_core_delete};
     std::vector<uint8_t> soundRom;
     std::unique_ptr<WiizCore,decltype(&wiiz_core_delete)> music{nullptr,wiiz_core_delete};
-    bool supportsTurbo=false,musicActive=false,swapAb=false,swapXy=false,maxSkills=false,freeJobs=false;
+    bool supportsTurbo=false,musicActive=false,swapAb=false,swapXy=false,maxSkills=false,freeJobs=false,freeMagic=false;
     unsigned speed=1,profile=0,experienceFactor=1,goldFactor=1;
     fs::path folder;
     fs::path saveName;
@@ -261,6 +261,7 @@ struct Session
         if(!wiiz_core_rewards(game,experienceFactor,goldFactor))throw std::runtime_error("Invalid battle reward settings");
         if(!wiiz_core_max_skills(game,maxSkills?1:0))throw std::runtime_error("Invalid skill settings");
         if(!wiiz_core_free_jobs(game,freeJobs?1:0))throw std::runtime_error("Invalid job settings");
+        if(!wiiz_core_free_magic(game,freeMagic?1:0))throw std::runtime_error("Invalid magic settings");
     }
     Session(const fs::path& path, const fs::path& data, const fs::path& previous={}) : rom(readFile(path)), folder(data), saveName(path.stem())
     {
@@ -371,6 +372,15 @@ struct Session
             maxSkills=bytes[0]=='1';
             if(!wiiz_core_max_skills(core.get(),maxSkills?1:0))throw std::runtime_error("Invalid skill settings");
         }
+        const auto magic=folder/(identity+".free-magic");
+        if(profile==122 && userstore::exists(magic))
+        {
+            const auto bytes=userstore::read(magic,1);
+            if(bytes.size()!=1 || (bytes[0]!='0' && bytes[0]!='1'))
+                throw std::runtime_error("Invalid magic settings: "+magic.string());
+            freeMagic=bytes[0]=='1';
+            if(!wiiz_core_free_magic(core.get(),freeMagic?1:0))throw std::runtime_error("Invalid magic settings");
+        }
         const auto jobs=folder/(identity+".free-jobs");
         if(profile==123 && userstore::exists(jobs))
         {
@@ -438,8 +448,15 @@ struct Session
         maxSkills=!maxSkills;
         if(!wiiz_core_max_skills(core.get(),maxSkills?1:0))throw std::runtime_error("Invalid skill settings");
     }
-    void toggleFreeJobs()
+    void toggleFreeCommand()
     {
+        if(profile==122)
+        {
+            writeFile(folder/(identity+".free-magic"),{uint8_t(freeMagic?'0':'1')});
+            freeMagic=!freeMagic;
+            if(!wiiz_core_free_magic(core.get(),freeMagic?1:0))throw std::runtime_error("Invalid magic settings");
+            return;
+        }
         if(profile!=123)return;
         writeFile(folder/(identity+".free-jobs"),{uint8_t(freeJobs?'0':'1')});
         freeJobs=!freeJobs;
@@ -819,7 +836,7 @@ int main(int argc, char** argv)
         std::string status;Uint64 statusUntil=0;
         double next=SDL_GetTicksNS()/1e9;Uint64 lastSave=SDL_GetTicks();
         std::array<std::string,22> menu={"Resume","Save slot 1","Load slot 1","Save slot 2","Load slot 2","Save slot 3","Load slot 3","Save slot 4","Load slot 4","Save slot 5","Load slot 5","Speed: 1x","Swap A/B: Off","Swap X/Y: Off","Select ROM","Battle EXP: 1x","Battle Gold: 1x","Max skills: Off","Free Jobs: Off","Reset","CRT: Off","Exit"};
-        auto title=[&] { menu[11]=session->supportsTurbo?"Speed: "+std::to_string(session->speed)+"x":"Speed: unavailable"; menu[12]=session->swapAb?"Swap A/B: On":"Swap A/B: Off"; menu[13]=session->swapXy?"Swap X/Y: On":"Swap X/Y: Off"; menu[15]=session->supportsExperienceRewards()?"Battle EXP: "+std::to_string(session->experienceFactor)+"x":"Battle EXP: unavailable"; menu[16]=session->supportsRewards()?"Battle Gold: "+std::to_string(session->goldFactor)+"x":"Battle Gold: unavailable"; menu[17]=session->ffAudio()?std::string(session->profile==122?"Max Wpn/Magic: ":"Max Job skill: ")+(session->maxSkills?"On":"Off"):"Max skills: unavailable"; menu[18]=session->profile==123?std::string("Free Jobs: ")+(session->freeJobs?"On":"Off"):"Free Jobs: unavailable"; menu[crtItem]=std::string("CRT: ")+crtNames[crtMode]; SDL_SetWindowTitle(window, paused ? ("NesDQ | "+menu[selected]+" | Up/Down, Left/Right, Enter, Esc").c_str() : ("NesDQ | "+std::to_string(session->speed)+"x | Q: Menu | F6: Speed | F1-F5: Save").c_str()); };
+        auto title=[&] { menu[11]=session->supportsTurbo?"Speed: "+std::to_string(session->speed)+"x":"Speed: unavailable"; menu[12]=session->swapAb?"Swap A/B: On":"Swap A/B: Off"; menu[13]=session->swapXy?"Swap X/Y: On":"Swap X/Y: Off"; menu[15]=session->supportsExperienceRewards()?"Battle EXP: "+std::to_string(session->experienceFactor)+"x":"Battle EXP: unavailable"; menu[16]=session->supportsRewards()?"Battle Gold: "+std::to_string(session->goldFactor)+"x":"Battle Gold: unavailable"; menu[17]=session->ffAudio()?std::string(session->profile==122?"Max Wpn/Magic: ":"Max Job skill: ")+(session->maxSkills?"On":"Off"):"Max skills: unavailable"; menu[18]=session->profile==122?std::string("Free Magic: ")+(session->freeMagic?"On":"Off"):session->profile==123?std::string("Free Jobs: ")+(session->freeJobs?"On":"Off"):"Free Jobs: unavailable"; menu[crtItem]=std::string("CRT: ")+crtNames[crtMode]; SDL_SetWindowTitle(window, paused ? ("NesDQ | "+menu[selected]+" | Up/Down, Left/Right, Enter, Esc").c_str() : ("NesDQ | "+std::to_string(session->speed)+"x | Q: Menu | F6: Speed | F1-F5: Save").c_str()); };
         auto action=[&](unsigned slot,bool load)
         {
             session->state(slot,load);if(load)audio.reset();held.clear();pendingPress=0;
@@ -898,7 +915,7 @@ int main(int argc, char** argv)
                         if (selected==13 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->setSwapXy(!session->swapXy);
                         if ((selected==15 || selected==16) && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->cycleReward(selected==15,key==SDLK_RIGHT);
                         if (selected==17 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->toggleMaxSkills();
-                        if (selected==18 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->toggleFreeJobs();
+                        if (selected==18 && (key==SDLK_LEFT || key==SDLK_RIGHT)) session->toggleFreeCommand();
                         const bool confirm=key==SDLK_RETURN || key==SDLK_X;
                         if (selected==crtItem && (confirm || key==SDLK_LEFT || key==SDLK_RIGHT))
                             setCrtMode((crtMode+(key==SDLK_LEFT?2u:1u))%3u,true);
@@ -910,7 +927,7 @@ int main(int argc, char** argv)
                             else if (selected==13) session->setSwapXy(!session->swapXy);
                             else if (selected==14) selectRom();
                             else if (selected==17) session->toggleMaxSkills();
-                            else if (selected==18) session->toggleFreeJobs();
+                            else if (selected==18) session->toggleFreeCommand();
                             else if (selected==19) {session->reset();held.clear();pendingPress=0;audio.reset();paused=false;}
                             else if (selected==menu.size()-1) running=false;
                         }
