@@ -248,7 +248,7 @@ struct Session
     bool supportsTurbo=false,musicActive=false,swapAb=false,swapXy=false,maxSkills=false,freeJobs=false,freeMagic=false;
     unsigned speed=1,profile=0,experienceFactor=1,goldFactor=1;
     fs::path folder;
-    fs::path saveName;
+    fs::path romName, previousFolder;
     std::string identity;
     std::vector<uint8_t> lastSaved;
     bool ffAudio() const {return profile==122 || profile==123;}
@@ -263,9 +263,8 @@ struct Session
         if(!wiiz_core_free_jobs(game,freeJobs?1:0))throw std::runtime_error("Invalid job settings");
         if(!wiiz_core_free_magic(game,freeMagic?1:0))throw std::runtime_error("Invalid magic settings");
     }
-    Session(const fs::path& path, const fs::path& data, const fs::path& previous={}) : rom(readFile(path)), folder(data), saveName(path.stem())
+    Session(const fs::path& path, const fs::path& data, const fs::path& previous={}) : rom(readFile(path)), folder(data), romName(path.stem()), previousFolder(previous)
     {
-        saveName += ".sav";
         if (rom.size() < 16 || std::string(reinterpret_cast<char*>(rom.data()), 4) != std::string("NES\x1a", 4))
             throw std::runtime_error("Invalid iNES ROM: " + path.string());
         identity = picosha2::hash256_hex_string(rom);
@@ -316,21 +315,18 @@ struct Session
             const auto bytes=userstore::read(controls,4);
             swapAb=bytes.size()==1 && bytes[0]=='1';
         }
-        // Android初期版の内部保存は共有先に同名データがないときだけコピーする。
-        if (!previous.empty() && previous!=folder)
-        {
-            for (unsigned slot=0;slot<=5;++slot)
-            {
-                const auto name=identity+(slot?"."+std::to_string(slot)+".state":".sav");
-                const auto target=folder/(slot?"state":"Save")/name;
-                auto source=previous/(slot?"state":"Save")/name;
-                if (!userstore::exists(source)) source=previous/name;
-                if (!userstore::exists(target) && userstore::exists(source)) writeFile(target,userstore::read(source,16*1024*1024));
-            }
-        }
         const auto save=savePath();
+        const auto saveName=save.filename();
+        const auto hashSaveName=identity+".sav";
+        // Android初期版の内部保存を共有先に引き継ぐ。
+        if (!previous.empty() && previous!=folder && !userstore::exists(save) && !userstore::exists(folder/"Save"/hashSaveName))
+        {
+            auto source=previous/"Save"/hashSaveName;
+            if (!userstore::exists(source)) source=previous/hashSaveName;
+            if (userstore::exists(source)) writeFile(save,userstore::read(source,1024*1024));
+        }
         // ROM名の保存を優先し、旧ハッシュ名のデータは元を残して引き継ぐ。
-        for (const auto& source : {folder/"Save"/(identity+".sav"),folder/saveName})
+        for (const auto& source : {folder/"Save"/hashSaveName,folder/saveName})
         {
             if (!userstore::exists(save) && userstore::exists(source)) writeFile(save,userstore::read(source,1024*1024));
         }
@@ -340,7 +336,7 @@ struct Session
                 if (!userstore::exists(save) && userstore::exists(source)) writeFile(save,userstore::read(source,1024*1024));
         }
         // 初期試作版の配置からはコピーして引き継ぐ。
-        const auto legacy=folder/(identity+".sav");
+        const auto legacy=folder/hashSaveName;
         if (!userstore::exists(save) && userstore::exists(legacy)) writeFile(save,userstore::read(legacy,1024*1024));
         if (userstore::exists(save))
         {
@@ -488,7 +484,18 @@ struct Session
     {
         return wiiz_core_audio(musicActive?music.get():core.get(),count);
     }
-    fs::path savePath() const {return folder/"Save"/saveName;}
+    fs::path savePath() const
+    {
+        auto name=romName;
+        name+=".sav";
+        return folder/"Save"/name;
+    }
+    fs::path statePath(unsigned slot) const
+    {
+        auto name=romName;
+        name+="_stot"+std::to_string(slot)+".state";
+        return folder/"state"/name;
+    }
     void saveRam(bool wait=true)
     {
         std::vector<uint8_t> bytes(wiiz_core_sram_size(core.get()));
@@ -505,15 +512,24 @@ struct Session
     void state(unsigned slot, bool load)
     {
         if (slot<1 || slot>5) throw std::runtime_error("Invalid state slot");
-        const auto name=identity+"."+std::to_string(slot)+".state";
-        const auto path=folder/"state"/name;
-        if (load && !userstore::exists(path) && userstore::exists(folder/name)) writeFile(path,userstore::read(folder/name,16*1024*1024));
+        const auto path=statePath(slot);
         const auto size=wiiz_core_state_size(core.get());
         auto put=[](std::vector<uint8_t>& bytes,uint32_t value){for(unsigned i=0;i<4;++i)bytes.push_back(uint8_t(value>>(i*8)));};
         auto get=[](const std::vector<uint8_t>& bytes,size_t at){uint32_t value=0;for(unsigned i=0;i<4;++i)value|=uint32_t(bytes.at(at+i))<<(i*8);return value;};
         if (load)
         {
-            const auto bytes=userstore::read(path,16*1024*1024);
+            auto source=path;
+            if (!userstore::exists(path))
+            {
+                const auto legacyName=identity+"."+std::to_string(slot)+".state";
+                if (userstore::exists(folder/"state"/legacyName)) source=folder/"state"/legacyName;
+                else if (!previousFolder.empty() && previousFolder!=folder && userstore::exists(previousFolder/"state"/legacyName))
+                    source=previousFolder/"state"/legacyName;
+                else if (!previousFolder.empty() && previousFolder!=folder && userstore::exists(previousFolder/legacyName))
+                    source=previousFolder/legacyName;
+                else if (userstore::exists(folder/legacyName)) source=folder/legacyName;
+            }
+            const auto bytes=userstore::read(source,16*1024*1024);
             std::unique_ptr<WiizCore,decltype(&wiiz_core_delete)> game(wiiz_core_new(rom.data(),rom.size()),wiiz_core_delete);
             if (!game) throw std::runtime_error("Cannot restore game core");
             bindProfile(game.get());
@@ -553,6 +569,7 @@ struct Session
                 }
             }
             bindProfile(game.get());
+            if (source!=path) writeFile(path,bytes);
             core=std::move(game);music=std::move(player);speed=restoredSpeed;musicActive=restoredMusic;
         }
         else
@@ -588,7 +605,7 @@ static int checkSwitch(std::unique_ptr<Session>& session,const fs::path& first,c
     const unsigned firstSpeed=session->supportsTurbo?3:1;
     for(unsigned i=0;i<90;++i)session->tick(0);
     session->setSpeed(firstSpeed);session->setSwapAb(true);session->state(1,false);
-    const auto firstState=data/"state"/(identity+".1.state");
+    const auto firstState=session->statePath(1);
     const auto firstStateBytes=userstore::read(firstState,16*1024*1024);
     std::vector<uint8_t> original(wiiz_core_sram_size(session->core.get()));
     require(original.empty() || wiiz_core_sram_read(session->core.get(),original.data(),original.size()),"Cannot read first SRAM");
@@ -712,7 +729,7 @@ static int check(Session& session)
         }
         core=session.core.get();
         // チェックサム不一致では実行中のゲームを差し替えない。
-        const auto path=session.folder/"state"/(session.identity+".1.state");
+        const auto path=session.statePath(1);
         auto bytes=userstore::read(path,16*1024*1024);const auto valid=bytes;bytes[40]^=1;writeFile(path,bytes);
         auto* original=session.core.get();bool rejected=false;
         try {session.state(1,true);}catch(const std::exception&){rejected=true;}
@@ -720,7 +737,7 @@ static int check(Session& session)
         if(!rejected || original!=session.core.get())throw std::runtime_error("Invalid state changed active game");
         std::vector<uint8_t> legacy(wiiz_core_state_size(session.core.get()));
         if(!wiiz_core_state_write(session.core.get(),legacy.data(),legacy.size()))throw std::runtime_error("Legacy state serialization failed");
-        const auto legacyPath=session.folder/"state"/(session.identity+".5.state");writeFile(legacyPath,legacy);
+        writeFile(session.statePath(5),legacy);
         session.state(5,true);core=session.core.get();
         session.tick(0);
         std::cout<<"PASS legacy_state=loaded\n";
