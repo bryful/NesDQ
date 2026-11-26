@@ -345,13 +345,21 @@ struct Session
                 throw std::runtime_error("Invalid SRAM: " + save.string());
             lastSaved=std::move(bytes);
         }
-        const auto setting=folder/(identity+".speed");
+        // 設定はROM名で保存し、旧ハッシュ名からは元を残して引き継ぐ。
+        for (const auto* extension : {".speed",".rewards",".max-skills",".free-magic",".free-jobs"})
+        {
+            const auto target=settingPath(extension);
+            const auto source=folder/(identity+extension);
+            if (!userstore::exists(target) && userstore::exists(source))
+                writeFile(target,userstore::read(source,4));
+        }
+        const auto setting=settingPath(".speed");
         if (supportsTurbo && userstore::exists(setting))
         {
             const auto bytes=userstore::read(setting,4);
             if (bytes.size()==1 && bytes[0]>='1' && bytes[0]<='6') {speed=bytes[0]-'0';musicActive=bool(music) && speed>1;}
         }
-        const auto rewards=folder/(identity+".rewards");
+        const auto rewards=settingPath(".rewards");
         if(supportsRewards() && userstore::exists(rewards))
         {
             const auto bytes=userstore::read(rewards,2);
@@ -359,7 +367,7 @@ struct Session
                 throw std::runtime_error("Invalid battle reward settings: "+rewards.string());
             experienceFactor=bytes[0];goldFactor=bytes[1];
         }
-        const auto skills=folder/(identity+".max-skills");
+        const auto skills=settingPath(".max-skills");
         if(ffAudio() && userstore::exists(skills))
         {
             const auto bytes=userstore::read(skills,1);
@@ -368,7 +376,7 @@ struct Session
             maxSkills=bytes[0]=='1';
             if(!wiiz_core_max_skills(core.get(),maxSkills?1:0))throw std::runtime_error("Invalid skill settings");
         }
-        const auto magic=folder/(identity+".free-magic");
+        const auto magic=settingPath(".free-magic");
         if(profile==122 && userstore::exists(magic))
         {
             const auto bytes=userstore::read(magic,1);
@@ -377,7 +385,7 @@ struct Session
             freeMagic=bytes[0]=='1';
             if(!wiiz_core_free_magic(core.get(),freeMagic?1:0))throw std::runtime_error("Invalid magic settings");
         }
-        const auto jobs=folder/(identity+".free-jobs");
+        const auto jobs=settingPath(".free-jobs");
         if(profile==123 && userstore::exists(jobs))
         {
             const auto bytes=userstore::read(jobs,1);
@@ -413,7 +421,7 @@ struct Session
         if (value<1 || value>6 || (!supportsTurbo && value!=1)) throw std::runtime_error("This ROM does not support verified turbo");
         speed=value;
         if (music && value>1) musicActive=true;
-        writeFile(folder/(identity+".speed"),std::vector<uint8_t>{uint8_t('0'+value)});
+        writeFile(settingPath(".speed"),std::vector<uint8_t>{uint8_t('0'+value)});
     }
     void setSwapXy(bool value)
     {
@@ -433,14 +441,14 @@ struct Session
         const auto index=static_cast<size_t>(std::find(factors.begin(),factors.end(),current)-factors.begin());
         const auto value=factors[(index+(forward?1:factors.size()-1))%factors.size()];
         const unsigned nextExperience=experience?value:experienceFactor,nextGold=experience?goldFactor:value;
-        writeFile(folder/(identity+".rewards"),{uint8_t(nextExperience),uint8_t(nextGold)});
+        writeFile(settingPath(".rewards"),{uint8_t(nextExperience),uint8_t(nextGold)});
         experienceFactor=nextExperience;goldFactor=nextGold;
         if(!wiiz_core_rewards(core.get(),experienceFactor,goldFactor))throw std::runtime_error("Invalid battle reward settings");
     }
     void toggleMaxSkills()
     {
         if(!ffAudio())return;
-        writeFile(folder/(identity+".max-skills"),{uint8_t(maxSkills?'0':'1')});
+        writeFile(settingPath(".max-skills"),{uint8_t(maxSkills?'0':'1')});
         maxSkills=!maxSkills;
         if(!wiiz_core_max_skills(core.get(),maxSkills?1:0))throw std::runtime_error("Invalid skill settings");
     }
@@ -448,13 +456,13 @@ struct Session
     {
         if(profile==122)
         {
-            writeFile(folder/(identity+".free-magic"),{uint8_t(freeMagic?'0':'1')});
+            writeFile(settingPath(".free-magic"),{uint8_t(freeMagic?'0':'1')});
             freeMagic=!freeMagic;
             if(!wiiz_core_free_magic(core.get(),freeMagic?1:0))throw std::runtime_error("Invalid magic settings");
             return;
         }
         if(profile!=123)return;
-        writeFile(folder/(identity+".free-jobs"),{uint8_t(freeJobs?'0':'1')});
+        writeFile(settingPath(".free-jobs"),{uint8_t(freeJobs?'0':'1')});
         freeJobs=!freeJobs;
         if(!wiiz_core_free_jobs(core.get(),freeJobs?1:0))throw std::runtime_error("Invalid job settings");
     }
@@ -483,6 +491,12 @@ struct Session
     const float* audio(size_t* count)
     {
         return wiiz_core_audio(musicActive?music.get():core.get(),count);
+    }
+    fs::path settingPath(const char* extension) const
+    {
+        auto name=romName;
+        name+=extension;
+        return folder/name;
     }
     fs::path savePath() const
     {
